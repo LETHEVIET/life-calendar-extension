@@ -1,0 +1,11 @@
+{
+    "manifest_version": 3,
+    "name": "My Startup Page",
+    "version": "1.0",
+    "chrome_url_overrides": {
+        "newtab": "build/index.html"
+    },
+    "permissions": [
+        "storage"
+    ]
+}
