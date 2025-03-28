@@ -2,7 +2,7 @@ import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
-import Calendars from './components/life-calendar.tsx'
+import Calendars from './components/calendar.tsx'
 import { ModeToggle } from './components/mode-toggle.tsx'
 
 function App() {
