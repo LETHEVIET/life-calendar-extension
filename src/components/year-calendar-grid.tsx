@@ -167,6 +167,8 @@ function YearCalendarGrid({
                   const dayEvents = getDateEvents(day, month, now.getFullYear());
                   const hasEvents = dayEvents.length > 0;
                   const firstEventEmoji = getFirstEventEmoji(day, month, now.getFullYear());
+                  
+                  const isToday = now.getDate() === day && now.getMonth() === monthIndex;
 
                   return (
                     <div
@@ -178,6 +180,8 @@ function YearCalendarGrid({
                         selectedDate?.month === month && 
                         selectedDate?.year === now.getFullYear() 
                           ? "ring-2 ring-orange-500" : ""
+                      } ${
+                        isToday ? "ring-2 ring-green-500" : ""
                       }`}
                       onClick={() => {
                         onSelectDate({

@@ -179,11 +179,11 @@ const EventDisplay = ({
                 <div>
                   <span>{event.title}</span>
                   <div className="text-xs text-muted-foreground">
-                    {selectedDate && event.date.day === selectedDate.day &&
-                     event.date.month === selectedDate.month &&
-                     event.date.year === selectedDate.year 
+                    {new Date().getDate() === event.date.day &&
+                     months[new Date().getMonth()] === event.date.month &&
+                     new Date().getFullYear() === event.date.year 
                       ? "Occurs today" 
-                      : `Started on ${event.date.month} ${event.date.day}, ${event.date.year}`}
+                      : `Occurs on ${event.date.month} ${event.date.day}, ${event.date.year}`}
                     
                     {event.repeat !== "none" && (
                       <>, repeats {event.repeat === "weekly" ? "weekly" : "monthly"}</>

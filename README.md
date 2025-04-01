@@ -1,54 +1,57 @@
-# React + TypeScript + Vite
+# Life Calendar
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern calendar and event tracking extension with a clean, intuitive interface.
 
-Currently, two official plugins are available:
+## ✨ Features
+- Interactive year calendar view with event visualization
+- Event tracking with weekly/monthly repeat options
+- Animated UI components for improved user experience
+- Light/dark theme support
+- Event tooltip previews
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Getting Started
+**Prerequisites**
+- Node.js (v18 or newer recommended)
+- pnpm
 
-## Expanding the ESLint configuration
+**Installation**
+```shell
+# Clone the repository
+git clone https://github.com/LETHEVIET/life-calendar-extension.git
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+# Navigate to the project directory
+cd life-calendar-extension
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+# Install dependencies
+pnpm install
 ```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+**Development**
+```shell
+pnpm run dev
 ```
+**Building for Production**
+```shell
+pnpm vite build
+```
+## 🛠️ Tech Stack
+- **React** - UI library
+- **TypeScript** - Type safety
+- **Vite** - Build tool
+- **TailwindCSS** - Styling
+- **Motion** - Animations
+- **Shadcn** - Component library
+- **pqoqubbw/icons** - Beautifully crafted animated icons
+
+## 📖 Usage
+The extension provides a yearly calendar view where users can:
+
+- Add and manage events
+- View event details through tooltips
+- Track recurring events
+- Switch between light and dark themes
+
+## 🤝 Contributing
+Contributions, issues, and feature requests are welcome!
+
+## 📄 License
+This project is licensed under the MIT License - see the LICENSE file for details.

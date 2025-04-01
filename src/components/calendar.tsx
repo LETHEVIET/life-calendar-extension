@@ -379,19 +379,18 @@ export default function Calendars() {
   useEffect(() => {
     const weekStartTime = performance.now();
     if (!birthdate) return;
-
+  
     const birthDate = new Date(birthdate);
     const today = new Date();
-
+  
     let totalWeeks = 0;
     let weekYears = [];
-
     let totalWeeksList = [0];
     let pastWeeks = 0;
-
+  
     setBirthYear(birthDate.getFullYear());
     setBirthWeek(getWeekNumber(birthDate));
-
+  
     for (
       let year = birthDate.getFullYear();
       year <= birthDate.getFullYear() + lifeExpectancy;
@@ -403,18 +402,22 @@ export default function Calendars() {
         const weekNumber = getWeekNumber(today);
         pastWeeks = totalWeeks + weekNumber;
         setPastWeeks(pastWeeks);
-        totalWeeks += numberWeekOfYear - weekNumber;
-      } else {
-        totalWeeks += numberWeekOfYear;
+      //   totalWeeks += numberWeekOfYear - weekNumber;
+      // } else {
+      //   totalWeeks += numberWeekOfYear;
       }
-
+      
+      totalWeeks += numberWeekOfYear;
       totalWeeksList.push(totalWeeks);
     }
-
+  
     setTotalWeeks(totalWeeksList);
-    setWeeksRemaining(totalWeeks - pastWeeks - 1 - getWeekNumber(birthDate));
     setWeekYears(weekYears);
-
+  
+    // Calculate weeks remaining 
+    
+    setWeeksRemaining(totalWeeks - pastWeeks);
+  
     console.log(
       "Week process time:",
       (performance.now() - weekStartTime).toFixed(2),
