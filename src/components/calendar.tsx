@@ -13,18 +13,23 @@ import {
 } from "@/components/ui/dialog.tsx";
 import LifeCalendarGrid from "./life-calendar-grid";
 import YearCalendarGrid from "./year-calendar-grid";
+import EventDisplay, { Event, EventDate } from "./event-display";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UseAnimations from "react-useanimations";
-import infinity from "react-useanimations/lib/infinity";
+import loading from "react-useanimations/lib/loading";
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip.tsx";
+import { SettingsIcon } from "./ui/settings.tsx";
+
+// import { Settings, Sparkle } from "lucide-react";
+import { SparklesIcon } from "./ui/sparkles.tsx";
+
 import { Switch } from "@/components/ui/switch.tsx";
+import { SharedTooltipProvider } from "./shared-tooltip";
+import { ModeToggle } from "./mode-toggle.tsx";
+
+import storageManager from "../utils/storageManager";
+import { LoaderPinwheelIcon } from "./ui/loader-pinwheel.tsx";
 
 function getISOWeek(date) {
   const dt = new Date(date.getTime());
@@ -61,6 +66,21 @@ function getWeekNumber(date = new Date()) {
   return weekNo;
 }
 
+const months = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
 export default function Calendars() {
   const [name, setName] = useState("Your Name");
   const [birthdate, setBirthdate] = useState("");
@@ -89,6 +109,184 @@ export default function Calendars() {
   const [formInspiration, setFormInspiration] = useState("");
   const [formUseRandomAdvice, setFormUseRandomAdvice] = useState(false);
 
+  // Event handling state
+  const [events, setEvents] = useState<Event[]>([]);
+  const [selectedDate, setSelectedDate] = useState<EventDate | null>(null);
+  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
+
+  // Convert between Date objects and our date structure
+  const dateToObj = (date: Date): EventDate => {
+    return {
+      day: date.getDate(),
+      month: months[date.getMonth()],
+      year: date.getFullYear(),
+    };
+  };
+
+  const objToDate = (dateObj: EventDate): Date => {
+    return new Date(
+      dateObj.year,
+      months.indexOf(dateObj.month),
+      dateObj.day
+    );
+  };
+
+  // Initialize selected date as today's date
+  useEffect(() => {
+    const today = new Date();
+    setSelectedDate(dateToObj(today));
+  }, []);
+
+  // Load events from storage
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        const savedEvents = await storageManager.get("life-calendar-events");
+        let parsedEvents = [];
+        
+        if (savedEvents) {
+          parsedEvents = JSON.parse(savedEvents);
+          if (!Array.isArray(parsedEvents)) parsedEvents = [];
+        }
+        
+        // Check if we need to add/update birthday event
+        if (birthdate) {
+          const birthdayDate = new Date(birthdate);
+          const birthdayEvent: Event = {
+            id: "birthday-special-event",
+            title: `${name}'s Birthday`,
+            description: "Your birthday celebration!",
+            date: {
+              day: birthdayDate.getDate(),
+              month: months[birthdayDate.getMonth()],
+              year: birthdayDate.getFullYear()
+            },
+            repeat: "yearly",
+            category: "birthday",
+            color: "#FFD700" // Gold color for birthday
+          };
+          
+          // Remove existing birthday event if present
+          parsedEvents = parsedEvents.filter(event => event.id !== "birthday-special-event");
+          
+          // Add the birthday event
+          parsedEvents.push(birthdayEvent);
+        }
+        
+        setEvents(parsedEvents);
+      } catch (e) {
+        console.error("Failed to load events:", e);
+        setEvents([]);
+      }
+    };
+    
+    loadEvents();
+  }, [birthdate, name, months]);
+
+  // Save events to storage whenever they change
+  useEffect(() => {
+    if (events.length > 0) { // Also save when clearing all events
+      try {
+        const eventsJson = JSON.stringify(events);
+        storageManager.set("life-calendar-events", eventsJson);
+      } catch (e) {
+        console.error("Failed to save events:", e);
+      }
+    }
+  }, [events]);
+
+  // Filter events for the selected date, including repeating events
+  useEffect(() => {
+    if (!selectedDate) {
+      setFilteredEvents([]);
+      return;
+    }
+
+    const filtered = events.filter((event) => {
+      // Direct date match
+      if (
+        event.date.day === selectedDate.day &&
+        event.date.month === selectedDate.month &&
+        event.date.year === selectedDate.year
+      ) {
+        return true;
+      }
+
+      // If event has an end date, check if the selected date is after it
+      if (event.endDate) {
+        const selectedDateObj = objToDate(selectedDate);
+        const endDateObj = objToDate(event.endDate);
+
+        if (selectedDateObj > endDateObj) {
+          return false;
+        }
+      }
+
+      // Weekly repeat - same day of week
+      if (event.repeat === "weekly") {
+        const eventDate = objToDate(event.date);
+        const currentDate = objToDate(selectedDate);
+
+        return (
+          eventDate.getDay() === currentDate.getDay() &&
+          currentDate >= eventDate
+        );
+      }
+
+      // Monthly repeat - same day of month
+      if (event.repeat === "monthly") {
+        return (
+          event.date.day === selectedDate.day &&
+          (selectedDate.year > event.date.year ||
+            (selectedDate.year === event.date.year &&
+              months.indexOf(selectedDate.month) >=
+                months.indexOf(event.date.month)))
+        );
+      }
+      
+      // Yearly repeat - same day and month (for birthdays)
+      if (event.repeat === "yearly") {
+        return (
+          event.date.day === selectedDate.day &&
+          event.date.month === selectedDate.month &&
+          selectedDate.year >= event.date.year
+        );
+      }
+
+      return false;
+    });
+
+    setFilteredEvents(filtered);
+  }, [selectedDate, events]);
+
+  // Handler for adding a new event
+  const handleAddEvent = (newEvent: Omit<Event, "id">) => {
+    const eventWithId: Event = {
+      ...newEvent,
+      id: Date.now().toString(),
+    };
+    setEvents([...events, eventWithId]);
+  };
+
+  // Handler for editing an event
+  const handleEditEvent = (id: string, updatedEvent: Omit<Event, "id">) => {
+    setEvents(
+      events.map((event) =>
+        event.id === id ? { ...updatedEvent, id } : event
+      )
+    );
+  };
+
+  // Handler for deleting an event
+  const handleDeleteEvent = (id: string) => {
+    setEvents(events.filter((event) => event.id !== id));
+  };
+
+  // Handler for date selection from the calendar
+  const handleSelectDate = (date: EventDate) => {
+    setSelectedDate(date);
+  };
+
   // Fetch random advice from API
   const fetchRandomAdvice = async () => {
     setAdviceLoading(true);
@@ -96,6 +294,7 @@ export default function Calendars() {
       const response = await fetch("https://api.adviceslip.com/advice");
       const data = await response.json();
       setRandomAdvice(data.slip.advice);
+      console.log("Fetched advice:", data.slip.advice);
     } catch (error) {
       console.error("Failed to fetch advice:", error);
       setRandomAdvice("Make the most of your time today."); // Fallback message
@@ -176,22 +375,6 @@ export default function Calendars() {
     }
   }, [randomAdvice, useRandomAdvice]);
 
-  // Load saved random advice during initial load
-  useEffect(() => {
-    if (typeof chrome !== "undefined" && chrome.storage) {
-      chrome.storage.local.get(["randomAdvice"], (result) => {
-        if (result.randomAdvice) {
-          setRandomAdvice(result.randomAdvice);
-        }
-      });
-    } else {
-      const savedRandomAdvice = localStorage.getItem("life-calendar-randomAdvice");
-      if (savedRandomAdvice) {
-        setRandomAdvice(savedRandomAdvice);
-      }
-    }
-  }, []);
-
   // Calculate weeks based on birthdate and life expectancy
   useEffect(() => {
     const weekStartTime = performance.now();
@@ -229,7 +412,7 @@ export default function Calendars() {
     }
 
     setTotalWeeks(totalWeeksList);
-    setWeeksRemaining(totalWeeks - pastWeeks - 1);
+    setWeeksRemaining(totalWeeks - pastWeeks - 1 - getWeekNumber(birthDate));
     setWeekYears(weekYears);
 
     console.log(
@@ -243,156 +426,65 @@ export default function Calendars() {
   useEffect(() => {
     setIsLoading(true);
 
-    if (typeof chrome !== "undefined" && chrome.storage) {
-      console.time("chrome-storage-total");
-      const startTime = performance.now();
+    // Check if we're running as an extension
+    const isExtension =
+      typeof chrome !== "undefined" && chrome.storage !== undefined;
 
-      chrome.storage.local.get(
-        [
-          "name",
-          "birthdate",
-          "lifeExpectancy",
-          "inspiration",
-          "useRandomAdvice",
-        ],
-        (result) => {
-          const fetchTime = performance.now() - startTime;
-          console.log("Chrome storage fetch time:", fetchTime.toFixed(2), "ms");
-
-          // Log size and value for each item
-          console.log(
-            "Name:",
-            result.name,
-            result.name
-              ? `(${JSON.stringify(result.name).length} bytes)`
-              : "(not found)"
-          );
-          console.log(
-            "Birthdate:",
-            result.birthdate,
-            result.birthdate
-              ? `(${JSON.stringify(result.birthdate).length} bytes)`
-              : "(not found)"
-          );
-          console.log(
-            "LifeExpectancy:",
-            result.lifeExpectancy,
-            result.lifeExpectancy
-              ? `(${JSON.stringify(result.lifeExpectancy).length} bytes)`
-              : "(not found)"
-          );
-          console.log(
-            "Inspiration:",
-            result.inspiration,
-            result.inspiration
-              ? `(${JSON.stringify(result.inspiration).length} bytes)`
-              : "(not found)"
-          );
-          console.log(
-            "UseRandomAdvice:",
-            result.useRandomAdvice,
-            result.useRandomAdvice !== undefined
-              ? `(${JSON.stringify(result.useRandomAdvice).length} bytes)`
-              : "(not found)"
-          );
+    if (isExtension) {
+      // Use storage manager for consistent API
+      const loadData = async () => {
+        try {
+          // Get all data at once
+          const name = await storageManager.get("life-calendar-name", "");
+          const birthdate = await storageManager.get("life-calendar-birthdate", "");
+          const lifeExpectancy = await storageManager.get("life-calendar-life-expectancy", 80);
+          const inspiration = await storageManager.get("life-calendar-inspiration", "How are you going to spend these weeks?");
+          const useRandomAdvice = await storageManager.get("life-calendar-use-random-advice", false);
 
           // Process the values
-          const processStartTime = performance.now();
-          if (result.name) setName(result.name);
-          if (result.birthdate) setBirthdate(result.birthdate);
-          if (result.lifeExpectancy) setLifeExpectancy(result.lifeExpectancy);
-          if (result.inspiration) setInspiration(result.inspiration);
-          if (result.useRandomAdvice !== undefined)
-            setUseRandomAdvice(result.useRandomAdvice);
-          console.log(
-            "Chrome storage process time:",
-            (performance.now() - processStartTime).toFixed(2),
-            "ms"
-          );
-
-          console.timeEnd("chrome-storage-total");
+          if (name) setName(name);
+          if (birthdate) setBirthdate(birthdate);
+          if (lifeExpectancy) setLifeExpectancy(lifeExpectancy);
+          if (inspiration) setInspiration(inspiration);
+          if (useRandomAdvice !== undefined) setUseRandomAdvice(useRandomAdvice);
 
           setIsLoading(false);
-          if (!result.birthdate) setIsDialogOpen(true);
+          if (!birthdate) setIsDialogOpen(true);
+        } catch (error) {
+          console.error("Error loading calendar data:", error);
+          setIsLoading(false);
+          setIsDialogOpen(true);
         }
-      );
+      };
+
+      loadData();
     } else {
-      console.time("localStorage-total");
+      // For non-extension environments, still use storage manager
+      // (it will use localStorage automatically)
+      const loadData = async () => {
+        try {
+          const name = await storageManager.get("life-calendar-name", "");
+          const birthdate = await storageManager.get("life-calendar-birthdate", "");
+          const lifeExpectancy = await storageManager.get("life-calendar-life-expectancy", 80);
+          const inspiration = await storageManager.get("life-calendar-inspiration", "How are you going to spend these weeks?");
+          const useRandomAdvice = await storageManager.get("life-calendar-use-random-advice", false);
 
-      // Measure individual localStorage items
-      const nameStartTime = performance.now();
-      const savedName = localStorage.getItem("life-calendar-name");
-      console.log(
-        "localStorage name fetch time:",
-        (performance.now() - nameStartTime).toFixed(2),
-        "ms",
-        savedName ? `(${savedName.length} bytes)` : "(not found)"
-      );
+          if (name) setName(name);
+          if (birthdate) setBirthdate(birthdate);
+          if (lifeExpectancy) setLifeExpectancy(lifeExpectancy);
+          if (inspiration) setInspiration(inspiration);
+          if (useRandomAdvice !== undefined) setUseRandomAdvice(useRandomAdvice);
 
-      const birthdateStartTime = performance.now();
-      const savedBirthdate = localStorage.getItem("life-calendar-birthdate");
-      console.log(
-        "localStorage birthdate fetch time:",
-        (performance.now() - birthdateStartTime).toFixed(2),
-        "ms",
-        savedBirthdate ? `(${savedBirthdate.length} bytes)` : "(not found)"
-      );
+          setIsLoading(false);
+          if (!birthdate) setIsDialogOpen(true);
+        } catch (error) {
+          console.error("Error loading calendar data:", error);
+          setIsLoading(false);
+          setIsDialogOpen(true);
+        }
+      };
 
-      const lifeExpectancyStartTime = performance.now();
-      const savedLifeExpectancy = localStorage.getItem(
-        "life-calendar-lifeExpectancy"
-      );
-      console.log(
-        "localStorage lifeExpectancy fetch time:",
-        (performance.now() - lifeExpectancyStartTime).toFixed(2),
-        "ms",
-        savedLifeExpectancy
-          ? `(${savedLifeExpectancy.length} bytes)`
-          : "(not found)"
-      );
-
-      const inspirationStartTime = performance.now();
-      const savedInspiration = localStorage.getItem(
-        "life-calendar-inspiration"
-      );
-      console.log(
-        "localStorage inspiration fetch time:",
-        (performance.now() - inspirationStartTime).toFixed(2),
-        "ms",
-        savedInspiration ? `(${savedInspiration.length} bytes)` : "(not found)"
-      );
-
-      const randomAdviceStartTime = performance.now();
-      const savedUseRandomAdvice = localStorage.getItem(
-        "life-calendar-useRandomAdvice"
-      );
-      console.log(
-        "localStorage useRandomAdvice fetch time:",
-        (performance.now() - randomAdviceStartTime).toFixed(2),
-        "ms",
-        savedUseRandomAdvice
-          ? `(${savedUseRandomAdvice.length} bytes)`
-          : "(not found)"
-      );
-
-      // Process values
-      const processStartTime = performance.now();
-      if (savedName) setName(savedName);
-      if (savedBirthdate) setBirthdate(savedBirthdate);
-      if (savedLifeExpectancy) setLifeExpectancy(Number(savedLifeExpectancy));
-      if (savedInspiration) setInspiration(savedInspiration);
-      if (savedUseRandomAdvice !== null)
-        setUseRandomAdvice(savedUseRandomAdvice === "true");
-      console.log(
-        "localStorage process time:",
-        (performance.now() - processStartTime).toFixed(2),
-        "ms"
-      );
-
-      console.timeEnd("localStorage-total");
-
-      setIsLoading(false);
-      if (!savedBirthdate) setIsDialogOpen(true);
+      loadData();
     }
   }, []);
 
@@ -405,7 +497,14 @@ export default function Calendars() {
       setFormInspiration(inspiration);
       setFormUseRandomAdvice(useRandomAdvice);
     }
-  }, [isDialogOpen, name, birthdate, lifeExpectancy, inspiration, useRandomAdvice]);
+  }, [
+    isDialogOpen,
+    name,
+    birthdate,
+    lifeExpectancy,
+    inspiration,
+    useRandomAdvice,
+  ]);
 
   // Modify handleSubmit to use form state
   const handleSubmit = (e) => {
@@ -417,52 +516,53 @@ export default function Calendars() {
     setInspiration(formInspiration);
     setUseRandomAdvice(formUseRandomAdvice);
 
-    const data = {
-      name: formName,
-      birthdate: formBirthdate,
-      lifeExpectancy: formLifeExpectancy,
-      inspiration: formInspiration,
-      useRandomAdvice: formUseRandomAdvice,
-    };
+    // Use storage manager to save all values
+    storageManager.set("life-calendar-name", formName);
+    storageManager.set("life-calendar-birthdate", formBirthdate);
+    storageManager.set("life-calendar-life-expectancy", formLifeExpectancy);
+    storageManager.set("life-calendar-inspiration", formInspiration);
+    storageManager.set("life-calendar-use-random-advice", formUseRandomAdvice);
+    
+    console.log("Settings saved");
+    setIsDialogOpen(false);
 
-    if (typeof chrome !== "undefined" && chrome.storage) {
-      chrome.storage.local.set(data, () => {
-        console.log("Settings saved");
-        setIsDialogOpen(false);
-
-        // Fetch new advice if switching to random mode
-        if (formUseRandomAdvice && !useRandomAdvice) {
-          fetchRandomAdvice();
-        }
-      });
-    } else {
-      localStorage.setItem("life-calendar-name", formName);
-      localStorage.setItem("life-calendar-birthdate", formBirthdate);
-      localStorage.setItem(
-        "life-calendar-lifeExpectancy",
-        formLifeExpectancy.toString()
-      );
-      localStorage.setItem("life-calendar-inspiration", formInspiration);
-      localStorage.setItem(
-        "life-calendar-useRandomAdvice",
-        formUseRandomAdvice.toString()
-      );
-      console.log("Settings saved to localStorage");
-      setIsDialogOpen(false);
-
-      // Fetch new advice if switching to random mode
-      if (formUseRandomAdvice && !useRandomAdvice) {
-        fetchRandomAdvice();
-      }
+    // Fetch new advice if switching to random mode
+    if (formUseRandomAdvice && !useRandomAdvice) {
+      fetchRandomAdvice();
     }
+  };
+
+  // Update handlers to use storage manager
+  const handleNameChange = (value: string) => {
+    setName(value);
+    storageManager.set("life-calendar-name", value);
+  };
+
+  const handleBirthdateChange = (value: string) => {
+    setBirthdate(value);
+    storageManager.set("life-calendar-birthdate", value);
+  };
+
+  const handleLifeExpectancyChange = (value: number) => {
+    setLifeExpectancy(value);
+    storageManager.set("life-calendar-life-expectancy", value);
+  };
+
+  const handleInspirationChange = (value: string) => {
+    setInspiration(value);
+    storageManager.set("life-calendar-inspiration", value);
+  };
+
+  const handleUseRandomAdviceChange = (checked: boolean) => {
+    setUseRandomAdvice(checked);
+    storageManager.set("life-calendar-use-random-advice", checked);
   };
 
   // Get fresh advice
   const handleRefreshAdvice = () => {
+    console.log("Refreshing advice...");
     fetchRandomAdvice();
   };
-
-  console.log("birthWeek", birthWeek);
 
   // Header text based on active tab
   const getHeaderText = () => {
@@ -484,89 +584,114 @@ export default function Calendars() {
 
   // Display the right inspirational message
   const getInspirationMessage = () => {
-    if (useRandomAdvice) {
-      if (adviceLoading) {
-        return "Loading advice...";
-      }
-      return randomAdvice || "Make today count";
-    } else {
-      return inspiration;
-    }
+    return randomAdvice || "";
   };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center min-h-screen absolute inset-0 m-auto">
-          <UseAnimations animation={infinity} size={56} />
-          <i>Loading...</i>
-        </div>
-      ) : (
-        <>
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold mb-2">{getHeaderText()}</h1>
-
-            <p className="text-lg text-gray-600 dark:text-gray-300">
-              {getSubheaderText()}
-            </p>
+      <SharedTooltipProvider>
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center min-h-screen absolute inset-0 m-auto">
+            <i>Loading...</i>
           </div>
+        ) : (
+          <>
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold mb-2">{getHeaderText()}</h1>
+            </div>
 
-          <Tabs
-            defaultValue={activeTab}
-            className=""
-            onValueChange={handleTabChange}
-          >
-            <TabsList className="grid w-full grid-cols-2 max-w-3xs mx-auto mb-4">
-              <TabsTrigger value="life">Life</TabsTrigger>
-              <TabsTrigger value="year">Year</TabsTrigger>
-            </TabsList>
-            <TabsContent
-              value="life"
-              forceMount
-              className="hidden data-[state=active]:block"
+            <Tabs
+              defaultValue={activeTab}
+              className=""
+              onValueChange={handleTabChange}
             >
-              <LifeCalendarGrid
-                birthdate={birthdate}
-                birthYear={birthYear}
-                birthWeek={birthWeek}
-                lifeExpectancy={lifeExpectancy}
-                totalWeeks={totalWeeks}
-                weekYears={weekYears}
-                pastWeeks={pastWeeks}
-                isLoading={isLoading}
-              />
-            </TabsContent>
-            <TabsContent
-              value="year"
-              forceMount
-              className="hidden data-[state=active]:block"
-            >
-              <YearCalendarGrid birthdate={birthdate} isLoading={isLoading} />
-            </TabsContent>
-          </Tabs>
-          <div className="text-center mb-12">
-            <div className="flex flex-col items-center">
-              <h2 className="text-2xl font-bold mb-4"><i>{getInspirationMessage()}</i></h2>
-              {useRandomAdvice && (
+              <TabsList className="grid w-full grid-cols-2 max-w-3xs mx-auto mb-2">
+                <TabsTrigger value="year">Year</TabsTrigger>
+                <TabsTrigger value="life">Life</TabsTrigger>
+              </TabsList>
+
+              <p className="text-lg text-gray-600 dark:text-gray-300">
+                {getSubheaderText()}
+              </p>
+              <TabsContent
+                value="life"
+                forceMount
+                className="hidden data-[state=active]:block"
+              >
+                <LifeCalendarGrid
+                  birthdate={birthdate}
+                  birthYear={birthYear}
+                  birthWeek={birthWeek}
+                  lifeExpectancy={lifeExpectancy}
+                  totalWeeks={totalWeeks}
+                  weekYears={weekYears}
+                  pastWeeks={pastWeeks}
+                  isLoading={isLoading}
+                />
+              </TabsContent>
+              <TabsContent
+                value="year"
+                forceMount
+                className="hidden data-[state=active]:block"
+              >
+                <div className="grid grid-cols-1 gap-6">
+                  <YearCalendarGrid
+                    birthdate={birthdate}
+                    isLoading={isLoading}
+                    events={events}
+                    months={months}
+                    onSelectDate={handleSelectDate}
+                    selectedDate={selectedDate}
+                  />
+
+                  <EventDisplay
+                    selectedDate={selectedDate}
+                    events={events}
+                    filteredEvents={filteredEvents}
+                    onAddEvent={handleAddEvent}
+                    onEditEvent={handleEditEvent}
+                    onDeleteEvent={handleDeleteEvent}
+                    months={months}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+            <div className="text-center mb-12">
+              <div className="flex justify-center items-center mb-4">
+                <h2 className="text-2xl font-bold">
+                  <i>{getInspirationMessage()}</i>
+                </h2>
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="icon"
+                  className="rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   onClick={handleRefreshAdvice}
                   disabled={adviceLoading}
-                  className="mb-4"
                 >
-                  {adviceLoading ? "Loading..." : "Get new advice"}
+                  {adviceLoading ? (
+                    // <UseAnimations className="bg-primary" animation={loading} size={24} />
+                    <LoaderPinwheelIcon />
+                  ) : (
+                    <SparklesIcon />
+                  )}
                 </Button>
-              )}
+              </div>
             </div>
-            <div className="flex justify-center gap-4">
-              <Button variant="outline" onClick={() => setIsDialogOpen(true)}>
-                [change name, date or inspiration]
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </SharedTooltipProvider>
+
+      <div className="fixed bottom-0 left-0 m-4 flex flex-col gap-2 items-center justify-center">
+        <ModeToggle />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setIsDialogOpen(true)}
+        >
+          {/* <Settings className="h-6 w-6" /> */}
+          <SettingsIcon className="h-6 w-6" />
+        </Button>
+      </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md">

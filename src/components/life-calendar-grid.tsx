@@ -1,11 +1,9 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useCallback } from "react";
+import { useSharedTooltip } from "./shared-tooltip";
 import {
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from "@/components/ui/tooltip.tsx";
 
 interface LifeCalendarGridProps {
@@ -48,6 +46,8 @@ function LifeCalendarGrid({
   pastWeeks,
   isLoading,
 }: LifeCalendarGridProps) {
+  const { showTooltip, hideTooltip } = useSharedTooltip();
+
   // Memoize the years array calculation
   const years = useMemo(() => {
     if (!birthdate && !isLoading) return [];
@@ -58,10 +58,36 @@ function LifeCalendarGrid({
     return Array.from({ length: endYear - birthYear }, (_, i) => birthYear + i);
   }, [birthdate, lifeExpectancy, isLoading]);
 
+  // Event delegation handlers
+  const handleMouseEnter = useCallback((e: React.MouseEvent) => {
+    if (isLoading) return;
+    
+    // Only process events from the week dots
+    const target = e.target as HTMLElement;
+    if (!target.classList.contains('week-dot')) return;
+    
+    const yearIndex = parseInt(target.dataset.yearIndex || '0', 10);
+    const weekIndex = parseInt(target.dataset.weekIndex || '0', 10);
+    const year = years[yearIndex];
+    
+    showTooltip(`Week ${weekIndex + 1} of ${year}`, target);
+  }, [isLoading, showTooltip, years]);
+
+  const handleMouseLeave = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('week-dot')) {
+      hideTooltip();
+    }
+  }, [hideTooltip]);
+
   return (
     <TooltipProvider>
       <div className="grid grid-cols-1 gap-4 mb-8 overflow-x-auto">
-        <div className="flex flex-wrap justify-center gap-1">
+        <div 
+          className="flex flex-wrap justify-center gap-1"
+          onMouseOver={handleMouseEnter}
+          onMouseOut={handleMouseLeave}
+        >
           {years.map((year, yearIndex) => (
             <div key={year} className="flex flex-col items-center mb-1 mx-1">
               <div className="text-xs font-medium mb-1">{year}</div>
@@ -70,26 +96,24 @@ function LifeCalendarGrid({
                   { length: weekYears.length ? weekYears[yearIndex] : 53 },
                   (_, weekIndex) => {
                     const weekNumber = totalWeeks[yearIndex] + weekIndex;
-                    const isPast = !isLoading && weekNumber < pastWeeks && (birthYear === year ? weekIndex > birthWeek : true);
+                    const isPast = !isLoading && weekNumber < pastWeeks;
+                    const notUseWeeks =  birthYear === year && (weekIndex < birthWeek);
                     return (
-                      <Tooltip key={weekIndex}>
-                        <TooltipTrigger asChild>
-                          <div
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              isLoading
-                                ? "bg-secondary" // Skeleton placeholder
-                                : isPast
-                                ? "bg-primary"
-                                : "bg-gray-200"
-                            }`}
-                          />
-                        </TooltipTrigger>
-                        {!isLoading && (
-                          <TooltipContent>
-                            {`Week ${weekIndex + 1} of ${year}`}
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
+                      <div
+                        key={weekIndex}
+                        className={`w-1.5 h-1.5 rounded-full week-dot ${
+                          isLoading
+                            ? "bg-secondary"
+                            : 
+                            notUseWeeks
+                            ?"bg-secondary"
+                            : isPast
+                              ? "bg-primary"
+                              : "bg-secondary"
+                        }`}
+                        data-year-index={yearIndex}
+                        data-week-index={weekIndex}
+                      />
                     );
                   }
                 )}
