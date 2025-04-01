@@ -61,3 +61,9 @@ Contributions, issues, and feature requests are welcome!
 
 ## 📄 License
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments & Inspiration
+This project draws inspiration from several excellent works in the calendar and productivity space:
+- The [The Last Sunday: reminder of life rushing by](https://chromewebstore.google.com/detail/the-last-sunday-reminder/aiojhapcgfgmiacbbjfgedhlcchmpelh) by [@paraschopra]
+- The design philosophy borrows elements from modern calendar applications while emphasizing simplicity and visual clarity.
+- Special thanks to the open-source community whose libraries and frameworks made this project possible.
