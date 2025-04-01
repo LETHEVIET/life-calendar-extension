@@ -1,13 +1,18 @@
-# Life Calendar
+# Life Calendar Extension
 
 A modern calendar and event tracking extension with a clean, intuitive interface.
 
 ## ✨ Features
-- Interactive year calendar view with event visualization
-- Event tracking with weekly/monthly repeat options
-- Animated UI components for improved user experience
-- Light/dark theme support
-- Event tooltip previews
+
+- **New Tab Integration** - Calendar opens automatically in new browser tabs
+- **Annual Overview** - Interactive yearly calendar with visual event indicators
+- **Flexible Event Management** - Support for one-time and recurring events (weekly/monthly)
+- **Responsive Design** - Smooth animations and intuitive user interface
+- **Appearance Options** - Toggle between light and dark themes
+- **Quick Information** - Hover tooltips for instant event preview
+
+## Demo
+![demo](./demo/demo.gif)
 
 ## 🚀 Getting Started
 **Prerequisites**
@@ -41,6 +46,7 @@ pnpm vite build
 - **Motion** - Animations
 - **Shadcn** - Component library
 - **pqoqubbw/icons** - Beautifully crafted animated icons
+- **quotes** - [Advice Slip JSON API](https://api.adviceslip.com/)
 
 ## 📖 Usage
 The extension provides a yearly calendar view where users can:
